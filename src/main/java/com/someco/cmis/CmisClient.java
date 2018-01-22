@@ -5,6 +5,7 @@ import org.apache.chemistry.opencmis.client.runtime.SessionFactoryImpl;
 import org.apache.chemistry.opencmis.commons.PropertyIds;
 import org.apache.chemistry.opencmis.commons.SessionParameter;
 import org.apache.chemistry.opencmis.commons.data.ContentStream;
+import org.apache.chemistry.opencmis.commons.data.PropertyData;
 import org.apache.chemistry.opencmis.commons.enums.BindingType;
 import org.apache.chemistry.opencmis.commons.enums.VersioningState;
 
@@ -24,6 +25,9 @@ public class CmisClient {
         parameter.put(SessionParameter.BINDING_TYPE, BindingType.ATOMPUB.value());
         parameter.put(SessionParameter.REPOSITORY_ID, "-default-");
         Session session = factory.createSession(parameter);
+
+        searchDocuments(session);
+        // System.exit(1);
 
         // locate the document library folder for Marketing Site
         String path = "/Sites/marketing/documentLibrary";
@@ -82,5 +86,42 @@ public class CmisClient {
         properties.put(PropertyIds.SOURCE_ID, marketingDocument.getId());
         properties.put(PropertyIds.TARGET_ID, whitepaper.getId());
         session.createRelationship(properties);
+
+        searchDocuments(session);
+    }
+
+    private static void searchDocuments(Session session) {
+        // select all documents of someCo (i.e, docs of type sc:doc)
+        ItemIterable<QueryResult> results = session.query("SELECT * FROM sc:doc",false);
+
+        // display all properties for each document
+        for (QueryResult hit : results) {
+            for (PropertyData<?> property :hit.getProperties()) {
+                String queryName = property.getQueryName();
+                Object value = property.getFirstValue();
+                System.out.println(queryName + ": " + value);
+            }
+            System.out.println("--------------------------------------");
+        }
+    }
+
+    private static void deleteDocuments(Session session) {
+        String path = "/Sites/marketing/documentLibrary";
+        Folder documentLibrary = (Folder) session.getObjectByPath(path);
+
+        // locate the marketing folder
+        Folder marketingFolder = null;
+        for (CmisObject child :documentLibrary.getChildren()) {
+            if ("Marketing".equals(child.getName())) {
+                marketingFolder = (Folder) child;
+            }
+        }
+
+        // delete all children in marketing folder
+        if (marketingFolder != null) {
+            for (CmisObject child :marketingFolder.getChildren()) {
+                session.delete(child);
+            }
+        }
     }
 }
